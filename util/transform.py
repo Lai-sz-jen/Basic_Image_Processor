@@ -63,14 +63,6 @@ class Monochrome(GrayScale):
         arr: np.ndarray = np.array(img)
         self.gray = super()._apply_as_arr(arr)
 
-    @property
-    def hist_bins(self) -> list[int]:
-        hist: list[int] = [0] * 256
-        for row in self.gray:
-            for pixel in row:
-                hist[pixel[0]] += 1
-
-        return hist
 
 if __name__ == "__main__":
     image = Image.open("Munich.png").convert("RGB")

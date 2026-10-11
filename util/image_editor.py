@@ -1,5 +1,6 @@
 from PIL import Image
 from .transform import GrayScale, Monochrome, Transform
+import numpy as np
 
 
 class ImageEditor:
@@ -52,7 +53,13 @@ class ImageEditor:
             transform.config(**kwargs)
 
     def gray_histogram(self) -> list[int]:
-        return self.__tools["mono"].hist_bins
+        gray: Image.Image|None = self.preview("gray")
+        if not gray:
+            return []
+
+        arr_1d: np.ndarray = np.array(gray)[:,:,0].flatten()
+        hist, _ = np.histogram(arr_1d, bins=256, range=(0, 256))
+        return hist.tolist()
 
 
 if __name__ == '__main__':
