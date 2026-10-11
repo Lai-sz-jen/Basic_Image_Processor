@@ -73,9 +73,9 @@ class ImageEditorGUI(ttk.Frame):
         self.editor = None
 
         ## test code for debugging
-        style = ttk.Style()
-        style.configure("testing.TFrame", background= "red")
-        self.config(style="testing.TFrame")
+        #style = ttk.Style()
+        #style.configure("testing.TFrame", background= "red")
+        #self.config(style="testing.TFrame")
 
         ## Create Widgets Reference
         self.head = ttk.Label(self, text="Image Wizard", anchor='center', background="white")
@@ -101,11 +101,17 @@ class ImageEditorGUI(ttk.Frame):
         self.rowconfigure(2, weight=1)
 
     def show_mono_ui(self):
+        if not self.editor:
+            return
+
         self.mono_ui.grid()
         self.mono_ui.render_hist(self.editor.gray_histogram())
 
 
     def _update_image_display(self, img: Image.Image):
+        if not self.editor:
+            return
+
         tk_img = ImageTk.PhotoImage(img)
         self.img_label.config(image=tk_img)
         self.img_label.img = tk_img  # keep a reference to prevent garbage collection
@@ -129,19 +135,31 @@ class ImageEditorGUI(ttk.Frame):
         self.editor.save(file_path)
 
     def restore(self):
+        if not self.editor:
+            return
+
         self.editor.restore()
         self._update_image_display(self.editor.cur)
 
     def to_gray(self):
+        if not self.editor:
+            return
+
         self.editor.apply("gray")
         self._update_image_display(self.editor.cur)
         self.mono_ui.grid_remove()
 
     def mono_preview(self, threshold: int):
+        if not self.editor:
+            return
+
         self.editor.config("mono", threshold=threshold)
         self._update_image_display(self.editor.preview("mono"))
 
     def to_mono(self):
+        if not self.editor:
+            return
+
         self.editor.apply("mono")
         self._update_image_display(self.editor.cur)
 

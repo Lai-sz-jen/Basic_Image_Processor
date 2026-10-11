@@ -23,7 +23,7 @@ class ImageEditor:
 
 
     def save(self, file_path) -> None:
-        if not self.__cur:
+        if not self.__cur or not file_path:
             return
 
         self.__cur.save(file_path)
