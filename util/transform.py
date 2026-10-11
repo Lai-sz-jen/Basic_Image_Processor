@@ -29,7 +29,7 @@ class GrayScale(Transform):
     def _apply_as_arr(arr: np.ndarray) -> np.ndarray:
         height, width, _ = arr.shape
         gray = np.zeros((height, width, 3), dtype=np.uint8)
-        gray[:,:,0] = arr[:,:,0] * 0.2126 + arr[:,:,1] * 0.7152 + arr[:,:,2] * 0.0722
+        gray[:,:,0] = np.round(arr[:,:,0] * 0.2126 + arr[:,:,1] * 0.7152 + arr[:,:,2] * 0.0722)
         gray[:,:,1] = gray[:,:,0]
         gray[:,:,2] = gray[:,:,0]
         return gray
@@ -75,7 +75,7 @@ class Monochrome(GrayScale):
 if __name__ == "__main__":
     image = Image.open("Munich.png").convert("RGB")
     image = GrayScale().apply(image)
-    image = Monochrome(image).apply(image)
+    #image = Monochrome(image).apply(image)
 
     image.save("altered.png")
 
