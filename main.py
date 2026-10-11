@@ -5,6 +5,7 @@ from PIL import Image, ImageTk
 from gui_element.menu import Menu
 from gui_element.histogram import Histogram
 from collections.abc import Callable
+from pathlib import Path
 
 
 class MonochromeGUI(ttk.Frame):
@@ -72,17 +73,18 @@ class ImageEditorGUI(ttk.Frame):
 
         self.editor = None
 
-        ## test code for debugging
-        #style = ttk.Style()
-        #style.configure("testing.TFrame", background= "red")
-        #self.config(style="testing.TFrame")
+        ## Styling Color
+        style = ttk.Style()
+        style.configure("main_theme.TFrame", background= "lightgray")
+        self.config(style="main_theme.TFrame")
 
         ## Create Widgets Reference
         self.head = ttk.Label(self, text="Image Wizard", anchor='center', background="white")
         self.menu = Menu(self,
                    [[("Load", self.load_image), ("Save", self.save_image)],
                           [("Grayscale", self.to_gray), ("Monochrome", self.show_mono_ui), ("Negative", self.to_negative)],
-                          [("Restore", self.restore)]])
+                          [("Restore", self.restore)]],
+                         style="main_theme.TFrame")
         self.img_label = ttk.Label(self, background="gray")
         self.mono_ui = MonochromeGUI(self,
                                      self.mono_preview,
@@ -123,6 +125,7 @@ class ImageEditorGUI(ttk.Frame):
             return
 
         self.editor = ImageEditor(file_path)
+        self.head.config(text=Path(file_path).name)
         self._update_image_display(self.editor.cur)
         self.mono_ui.grid_remove()
 
@@ -177,7 +180,7 @@ class App(Tk):
     def __init__(self):
         super().__init__()
 
-        ## Define Style
+        ## Define Font Style
         style = ttk.Style()
         # Configure the '.' (root) style to __apply to EVERYTHING
         style.configure('.', font=('Helvetica', 12))
