@@ -22,6 +22,8 @@ class Histogram(Canvas):
 
 
     def show(self, hist_bin: list[int]) -> None:
+        self.delete("bar")
+
         self.hist_bin = hist_bin
         highest: int = max(hist_bin)
 

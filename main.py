@@ -140,6 +140,7 @@ class ImageEditorGUI(ttk.Frame):
 
         self.editor.restore()
         self._update_image_display(self.editor.cur)
+        self.mono_ui.grid_remove()
 
     def to_gray(self):
         if not self.editor:
