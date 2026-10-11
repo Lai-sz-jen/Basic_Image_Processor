@@ -113,12 +113,18 @@ class ImageEditorGUI(ttk.Frame):
 
     def load_image(self) -> None:
         file_path = filedialog.askopenfilename(filetypes=[("Image Files", "*.png;*.jpg;*.jpeg;*.bmp;*.gif")])
+        if not file_path:
+            return
+
         self.editor = ImageEditor(file_path)
         self._update_image_display(self.editor.cur)
         self.mono_ui.grid_remove()
 
 
     def save_image(self) -> None:
+        if not self.editor:
+            return
+
         file_path = filedialog.asksaveasfilename(filetypes=[("Image Files", "*.png")])
         self.editor.save(file_path)
 
