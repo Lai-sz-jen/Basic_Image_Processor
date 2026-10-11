@@ -81,7 +81,7 @@ class ImageEditorGUI(ttk.Frame):
         self.head = ttk.Label(self, text="Image Wizard", anchor='center', background="white")
         self.menu = Menu(self,
                    [[("Load", self.load_image), ("Save", self.save_image)],
-                          [("GrayScale", self.to_gray), ("Monochrome", self.show_mono_ui)],
+                          [("Grayscale", self.to_gray), ("Monochrome", self.show_mono_ui), ("Negative", self.to_negative)],
                           [("Restore", self.restore)]])
         self.img_label = ttk.Label(self, background="gray")
         self.mono_ui = MonochromeGUI(self,
@@ -162,6 +162,14 @@ class ImageEditorGUI(ttk.Frame):
 
         self.editor.apply("mono")
         self._update_image_display(self.editor.cur)
+
+    def to_negative(self):
+        if not self.editor:
+            return
+
+        self.editor.apply("negative")
+        self._update_image_display(self.editor.cur)
+        self.mono_ui.grid_remove()
 
 
 class App(Tk):

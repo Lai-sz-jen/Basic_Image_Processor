@@ -64,10 +64,22 @@ class Monochrome(GrayScale):
         self.gray = super()._apply_as_arr(arr)
 
 
+class Negative(Transform):
+    # @override
+    def apply(self, img: Image.Image, **kwargs) -> Image.Image:
+        arr: np.ndarray = np.array(img)
+        arr = 255 - arr
+        return Image.fromarray(arr)
+
+    def config(self, **kwargs) -> None:
+        return
+
+
 if __name__ == "__main__":
     image = Image.open("Munich.png").convert("RGB")
-    image = GrayScale().apply(image)
+    #image = GrayScale().apply(image)
     #image = Monochrome(image).apply(image)
+    image = Negative().apply(image)
 
     image.save("altered.png")
 

@@ -1,5 +1,5 @@
 from PIL import Image
-from .transform import GrayScale, Monochrome, Transform
+from .transform import GrayScale, Monochrome, Negative, Transform
 import numpy as np
 
 
@@ -19,7 +19,8 @@ class ImageEditor:
         self.__cur = Image.open(file_path).convert("RGB")
         self.__origin = self.__cur
         self.__tools |= {"gray": GrayScale(),
-                         "mono": Monochrome(self.__cur)}
+                         "mono": Monochrome(self.__cur),
+                         "negative": Negative()}
 
 
     def save(self, file_path) -> None:
