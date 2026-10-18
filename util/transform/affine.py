@@ -5,15 +5,11 @@ import numpy as np
 
 class Affine(Transform):
     def __init__(self):
-        self.__inverse: np.ndarray = np.array([[1, 0, 0],
-                                               [0, 1, 0],
-                                               [0, 0, 1]],
-                                             dtype=np.double)    # initialize as Identity Matrix
+        self._inverse: np.ndarray = np.identity(3, dtype=np.double)    # initialize as Identity Matrix
 
 
-    @staticmethod
     @abstractmethod
-    def _get_result_shape(height_0: int, width_0: int, channel: int=3) -> tuple[int, int, int]:
+    def _get_result_shape(self, height_0: int, width_0: int, channel: int=3) -> tuple[int, int, int]:
         pass
 
     @staticmethod
@@ -53,6 +49,10 @@ class Affine(Transform):
         return np.round(result).astype(np.uint8)
 
     def apply(self, img: Image.Image, **kwargs) -> Image.Image:
+        default: dict[str, tuple[int, int, int]] = {"background": (0, 0, 0)}
+        kwargs = default | kwargs
+
+
         arr: np.ndarray = np.array(img)
         h_0, w_0, c = arr.shape
         h_1, w_1, c = self._get_result_shape(h_0, w_0)
@@ -61,23 +61,21 @@ class Affine(Transform):
         for y in range(h_1):
             for x in range(w_1):
                 coord: np.ndarray = np.array([x, y, 1], dtype=np.double)
-                mapping: np.ndarray = (self.__inverse @ coord)[:2]
+                mapping: np.ndarray = (self._inverse @ coord)[:2]
                 left, top = np.floor(mapping).astype(np.int32)
 
-                if left < 0 or left > w_0 - 2:
-                    continue
-                elif top < 0 or top > h_0 - 2:
-                    continue
+                if (left < 0 or left > w_0 - 2) or (top < 0 or top > h_0 - 2):
+                    rgb = np.array(kwargs["background"], dtype=np.uint8)
+                else:
+                    rgb: np.ndarray = self._bilinear_interpolation(arr[top: top+2, left: left+2], mapping % 1)
 
-                rgb: np.ndarray = self._bilinear_interpolation(arr[top: top+2, left: left+2], mapping % 1)
                 result[y, x] = rgb
 
         return Image.fromarray(result)
 
 
 class Identity(Affine):
-    @staticmethod
-    def _get_result_shape(height_0: int, width_0: int, channel: int=3) -> tuple[int, int, int]:
+    def _get_result_shape(self, height_0: int, width_0: int, channel: int = 3) -> tuple[int, int, int]:
         return height_0, width_0, channel
 
     def config(self, **kwargs) -> None:
