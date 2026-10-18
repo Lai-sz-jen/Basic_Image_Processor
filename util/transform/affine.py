@@ -82,9 +82,42 @@ class Identity(Affine):
         return
 
 
+class Translation(Affine):
+    def __init__(self):
+        super().__init__()
+
+        self.__delta_x = 0
+        self.__delta_y = 0
+
+
+    def _get_result_shape(self, height_0: int, width_0: int, channel: int = 3) -> tuple[int, int, int]:
+        return (height_0 + abs(self.__delta_y),
+                width_0 + abs(self.__delta_x),
+                3)
+
+
+    def config(self, **kwargs) -> None:
+        default: dict[str, int] = {"delta_x": 0,
+                                   "delta_y": 0}
+        kwargs = default | kwargs
+
+        self.__delta_x = kwargs["delta_x"]
+        self.__delta_y = kwargs["delta_y"]
+        affine: np.ndarray = np.array([[1, 0, self.__delta_x],
+                                       [0, 1, self.__delta_y],
+                                       [0, 0, 1]],
+                                      dtype=np.double)
+
+        self._inverse = np.linalg.inv(affine)
+
+
 if __name__ == "__main__":
     image = Image.open("Munich.png").convert("RGB")
-    image = Identity().apply(image)
+    #image = Identity().apply(image)
+
+    t = Translation()
+    t.config(delta_x=200, delta_y=200)
+    image = t.apply(image, background=(255, 255, 255))
 
     image.save("altered.png")
 
