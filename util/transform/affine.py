@@ -48,12 +48,11 @@ class Affine(Transform):
 
         return np.round(result).astype(np.uint8)
 
-    def apply(self, img: Image.Image, **kwargs) -> Image.Image:
+    def _apply(self, arr: np.ndarray, **kwargs) -> np.ndarray[tuple[int, int, int], np.dtype[np.uint8]]:
         default: dict[str, tuple[int, int, int]] = {"background": (0, 0, 0)}
         kwargs = default | kwargs
 
 
-        arr: np.ndarray = np.array(img)
         h_0, w_0, c = arr.shape
         h_1, w_1, c = self._get_result_shape(h_0, w_0)
         result: np.ndarray = np.zeros((h_1, w_1, c), dtype=np.uint8)
@@ -71,6 +70,11 @@ class Affine(Transform):
 
                 result[y, x] = rgb
 
+        return result
+
+    def apply(self, img: Image.Image, **kwargs) -> Image.Image:
+        arr: np.ndarray = np.array(img)
+        result = self._apply(arr, **kwargs)
         return Image.fromarray(result)
 
 
