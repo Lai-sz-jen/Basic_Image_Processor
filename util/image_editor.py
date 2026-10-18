@@ -1,5 +1,6 @@
 from PIL import Image
-from util.transform.transform import GrayScale, Monochrome, Negative, Transform
+from util.transform.interface import Transform
+from util.transform.color import GrayScale, Monochrome, Negative
 import numpy as np
 
 
@@ -64,4 +65,4 @@ class ImageEditor:
 
 
 if __name__ == '__main__':
-    ImageEditor("Munich.png")
+    ImageEditor("transform/Munich.png")

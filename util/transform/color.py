@@ -1,17 +1,6 @@
+from .interface import Transform
 from PIL import Image
-from abc import ABC, abstractmethod
 import numpy as np
-
-
-class Transform(ABC):   # Interface
-    @abstractmethod
-    def apply(self, img: Image.Image, **kwargs) -> Image.Image:
-        pass
-
-    def _config(self, **kwargs) -> None:
-        if kwargs:
-            raise TypeError(f"{self.__class__.__name__} does not accept configuration arguments!")
-
 
 class GrayScale(Transform):
     # @override
@@ -74,4 +63,3 @@ if __name__ == "__main__":
     #image = Negative().apply(image)
 
     image.save("altered.png")
-
