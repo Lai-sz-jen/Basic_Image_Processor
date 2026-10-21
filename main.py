@@ -157,8 +157,7 @@ class ImageEditorGUI(ttk.Frame):
         if not self.editor:
             return
 
-        self.editor.config("mono", threshold=threshold)
-        self._update_image_display(self.editor.preview("mono"))
+        self._update_image_display(self.editor.preview("mono", threshold=threshold))
 
     def to_mono(self):
         if not self.editor:
