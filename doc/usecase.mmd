@@ -1,0 +1,17 @@
+usecase-beta
+    actor User
+    
+    systemBoundary Editor["Basic Image Editor"] 
+        load["Load Image"]
+        grayscale["Transform to\n GrayScale"]
+        monochrome["Transform to\n Monochrome"]
+        negative["Transform to\n Negative Image"]
+        save ["Save as File"]
+    end
+
+    User --> load
+    User --> grayscale
+    User --> monochrome
+    User --> negative
+    User --> save
+    
