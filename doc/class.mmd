@@ -1,0 +1,46 @@
+classDiagram
+    class ImageEditor{
+        -Image cur
+        -Image origin
+        -Dict~str, Transform~ tools
+        +get_cur() Image
+        +load(file_path: str) void
+        +save(file_path: str) void
+        +restore() void
+        +preview(tool: str) Image
+        +apply(tool: str) void
+        +config(tool: str, **kwargs) void
+    }
+
+    class Transform{
+        <<interface>>
+        +apply(img: Image, **kwargs) Image
+        +config(**kwargs) void
+    }
+
+    class GrayScale{
+        +apply(img: Image, **kwargs) Image
+        +config(**kwargs) void
+        #apply_as_arr(arr: ndarray) ndarray
+    }
+
+    class Negative{
+        +apply(img: Image, **kwargs) Image
+        +config(**kwargs) void
+    }
+
+    class Monochrome{
+        -int threshold
+        -Image cache
+        -ndarray gray
+        +apply(img: Image, **kwargs) Image
+        +config(**kwargs) void
+        +renew_cache(img: Image) void
+    }
+
+
+    ImageEditor ..> Transform: use
+    GrayScale ..|> Transform
+    Negative ..|> Transform
+    Monochrome --|> GrayScale: extend
+
