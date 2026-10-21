@@ -1,5 +1,5 @@
 from abc import abstractmethod
-from interface import Transform
+from .interface import Transform
 from PIL import Image
 import numpy as np
 
