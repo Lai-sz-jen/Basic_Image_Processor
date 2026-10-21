@@ -9,42 +9,74 @@ class Affine(Transform):
 
 
     @abstractmethod
-    def _get_result_shape(self, height_0: int, width_0: int, channel: int=3) -> tuple[int, int, int]:
+    def _preview_shape(self, height_0: int, width_0: int, channel: int=3, **kwargs) -> tuple[int, int, int]:
+        pass
+
+    @abstractmethod
+    def _config(self, **kwargs) -> None:
         pass
 
     @staticmethod
-    def _bilinear_interpolation(adjacent_pixels: np.ndarray,
-                                point: np.ndarray) -> np.ndarray:
+    def _bilinear_interpolation(src_arr: np.ndarray,
+                                mapping: np.ndarray,
+                                background: tuple[int, int, int]) -> np.ndarray:
         """
         Getting the RGB values of a non-discrete point on an image using bilinear interpolation.
 
-        :param adjacent_pixels: a submatrix of the image containing the 4 adjacent pixels RGB values.
-        :param point: the non-discreate point's offset from the top-left pixel as a vector, delta_x first.
-        :return: the resulting RGB value.
+        :param src_arr: an array containing the source image pixels' value
+        :param mapping: the point to match from the original
+        :param background: the color to fill when pixel can't map back to src_arr
+        :return the interpolated pixels; vectorized into image array
         """
-        def interpolate(endpoint: np.ndarray,
-                        d: float) -> np.ndarray[tuple[int], np.dtype[np.double]]:
+        def interpolate(a: np.ndarray,
+                        b: np.ndarray,
+                        d: np.ndarray) -> np.ndarray:
             """
             Getting the RGB values of a non-discrete point on a line using linear interpolation.
 
-            :param endpoint: a matrix containing the 2 adjacent pixels RGB values.
-            :param d: the non-discreate point's distance to the first endpoint
-            :return: the resulting RGB value.
+            :param a: contain the value of one endpoint; vectorized
+            :param b: contain the value of the other endpoint; vectorized
+            :param d: the normalized distance between point a and the point to interpolate to; vectorized
+            :return the interpolated pixels; vectorized
             """
-            delta: np.ndarray = endpoint[1] - endpoint[0]
-            return endpoint[0] + delta * d
+            delta: np.ndarray = b - a
+            return a + delta * d[:, np.newaxis]
 
-            # an + bm = an + (a + (b-a)) * m
-            #         = a (n+m) + (b-a) * m
-            #         = a + (b-a) * m
+            # a(d-1) + bd = a*(d-1) + (a+(b-a))*d
+            #             = a*1     + (b-a)*d
+            #             = a + (b-a)*d
 
-        delta_x, delta_y = point
-        adjacent_pixels = adjacent_pixels.astype(np.double)
+        ## Hyperparameter
+        h, w, _ = src_arr.shape
 
-        top: np.ndarray = interpolate(adjacent_pixels[0], delta_x)
-        bottom: np.ndarray = interpolate(adjacent_pixels[1], delta_x)
-        result: np.ndarray = interpolate(np.array([top, bottom], dtype=np.double),
-                                         delta_y)
+        ## Precalculate Parameters
+        x_0: np.ndarray = np.floor(mapping[0]).astype(np.int32)
+        x_1: np.ndarray = x_0 + 1
+        y_0: np.ndarray = np.floor(mapping[1]).astype(np.int32)
+        y_1: np.ndarray = y_0 + 1
+        alpha: np.ndarray = mapping[0] - x_0
+        beta: np.ndarray = mapping[1] - y_0
+
+        # clip to avoid index out of bound
+        x_0 = x_0.clip(0, w - 1)
+        x_1 = x_1.clip(0, w - 1)
+        y_0 = y_0.clip(0, h - 1)
+        y_1 = y_1.clip(0, h - 1)
+
+        ## Fetch 4 Adjacent Pixels
+        pixel_00: np.ndarray = src_arr[y_0, x_0]
+        pixel_01: np.ndarray = src_arr[y_1, x_0]
+        pixel_10: np.ndarray = src_arr[y_0, x_1]
+        pixel_11: np.ndarray = src_arr[y_1, x_1]
+
+        ## Bilinear Interpolation
+        top: np.ndarray = interpolate(pixel_00, pixel_10, alpha)
+        bottom: np.ndarray = interpolate(pixel_01, pixel_11, alpha)
+        result: np.ndarray = interpolate(top, bottom, beta)
+
+        ## Fill Background
+        invalid = (mapping[0] < 0) | (mapping[0] > w) | (mapping[1] < 0) | (mapping[1] > h)
+        result = np.where(invalid[:, np.newaxis], np.array(background), result)
 
         return np.round(result).astype(np.uint8)
 
@@ -52,24 +84,21 @@ class Affine(Transform):
         default: dict[str, tuple[int, int, int]] = {"background": (0, 0, 0)}
         kwargs = default | kwargs
 
-
         h_0, w_0, c = arr.shape
-        h_1, w_1, c = self._get_result_shape(h_0, w_0)
-        result: np.ndarray = np.zeros((h_1, w_1, c), dtype=np.uint8)
+        h_1, w_1, c = self._preview_shape(h_0, w_0, **kwargs)
 
-        for y in range(h_1):
-            for x in range(w_1):
-                coord: np.ndarray = np.array([x, y, 1], dtype=np.double)
-                mapping: np.ndarray = (self._inverse @ coord)[:2]
-                left, top = np.floor(mapping).astype(np.int32)
+        kwargs |= {"height": h_0, "width": w_0}
+        self._config(**kwargs)
 
-                if (left < 0 or left > w_0 - 2) or (top < 0 or top > h_0 - 2):
-                    rgb = np.array(kwargs["background"], dtype=np.uint8)
-                else:
-                    rgb: np.ndarray = self._bilinear_interpolation(arr[top: top+2, left: left+2], mapping % 1)
+        ## Map destination pixels to point of original image
+        inverse: np.ndarray = self._inverse
+        y_index, x_index = np.indices((h_1, w_1), dtype=np.float64, sparse=False)
+        mapping: np.ndarray = np.vstack((x_index.ravel(), y_index.ravel(), np.ones(h_1 * w_1, dtype=np.float64)))
+        mapping = inverse @ mapping
 
-                result[y, x] = rgb
-
+        ## Construct Final Image
+        flat: np.ndarray = self._bilinear_interpolation(arr, mapping, kwargs["background"])
+        result: np.ndarray = flat.reshape(h_1, w_1, c)
         return result
 
     def apply(self, img: Image.Image, **kwargs) -> Image.Image:
@@ -79,10 +108,10 @@ class Affine(Transform):
 
 
 class Identity(Affine):
-    def _get_result_shape(self, height_0: int, width_0: int, channel: int = 3) -> tuple[int, int, int]:
+    def _preview_shape(self, height_0: int, width_0: int, channel: int = 3, **kwargs) -> tuple[int, int, int]:
         return height_0, width_0, channel
 
-    def config(self, **kwargs) -> None:
+    def _config(self, **kwargs) -> None:
         return
 
 
@@ -93,14 +122,13 @@ class Translation(Affine):
         self.__delta_x = 0
         self.__delta_y = 0
 
-
-    def _get_result_shape(self, height_0: int, width_0: int, channel: int = 3) -> tuple[int, int, int]:
+    def _preview_shape(self, height_0: int, width_0: int, channel: int = 3, **kwargs) -> tuple[int, int, int]:
         return (height_0 + abs(self.__delta_y),
                 width_0 + abs(self.__delta_x),
                 3)
 
 
-    def config(self, **kwargs) -> None:
+    def _config(self, **kwargs) -> None:
         default: dict[str, int] = {"delta_x": 0,
                                    "delta_y": 0}
         kwargs = default | kwargs
@@ -120,7 +148,6 @@ if __name__ == "__main__":
     #image = Identity().apply(image)
 
     t = Translation()
-    t.config(delta_x=200, delta_y=200)
     image = t.apply(image, background=(255, 255, 255))
 
     image.save("altered.png")
