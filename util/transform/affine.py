@@ -3,6 +3,7 @@ from typing import Any
 from .interface import Transform
 from PIL import Image
 import numpy as np
+from math import radians, sin, cos
 
 class Affine(Transform):
     def __init__(self):
@@ -122,37 +123,199 @@ class Translation(Affine):
     def __init__(self):
         super().__init__()
 
-        self.__delta_x = 0
-        self.__delta_y = 0
+        self._default |= {"delta_x": 0,
+                          "delta_y": 0}
 
     def _preview_shape(self, height_0: int, width_0: int, channel: int = 3, **kwargs) -> tuple[int, int, int]:
-        return (height_0 + abs(self.__delta_y),
-                width_0 + abs(self.__delta_x),
-                3)
-
+        return (height_0 + abs(kwargs["delta_y"]),
+                width_0 + abs(kwargs["delta_x"]),
+                channel)
 
     def _config(self, **kwargs) -> None:
-        default: dict[str, int] = {"delta_x": 0,
-                                   "delta_y": 0}
-        kwargs = default | kwargs
+        ## Fetching Parameters
+        delta_x: int = kwargs["delta_x"]
+        delta_y: int = kwargs["delta_y"]
 
-        self.__delta_x = kwargs["delta_x"]
-        self.__delta_y = kwargs["delta_y"]
-        affine: np.ndarray = np.array([[1, 0, self.__delta_x],
-                                       [0, 1, self.__delta_y],
+        ## Building Affine Matrix
+        affine: np.ndarray = np.identity(3, dtype=np.double)
+        if delta_x > 0:
+            affine[0, 2] = delta_x
+        if delta_y > 0:
+            affine[1, 2] = delta_y
+
+        ## Find Inverse of Affine Matrix
+        inverse: np.ndarray = np.identity(3, dtype=np.double)
+        inverse[0, 2] = -affine[0, 2]   #  R1 += -(R3 * delta_x)
+        inverse[1, 2] = -affine[1, 2]   #  R2 += -(R3 * delta_y)
+
+        self._inverse = inverse
+
+
+class Reflection(Affine):
+    def __init__(self):
+        super().__init__()
+
+        self._default |= {"invert_x": False,
+                          "invert_y": False}
+
+    def _preview_shape(self, height_0: int, width_0: int, channel: int=3, **kwargs) -> tuple[int, int, int]:
+        return height_0, width_0, channel
+
+    def _config(self, **kwargs) -> None:
+        ## Building Affine Matrix
+        affine: np.ndarray = np.identity(3, dtype=np.double)
+
+        if kwargs["invert_x"]:
+            affine[0, 0] = -1
+            affine[0, 2] = kwargs["width"] - 1
+        if kwargs["invert_y"]:
+            affine[1, 1] = -1
+            affine[1, 2] = kwargs["height"] - 1
+
+
+        ## Find Inverse of Affine Matrix
+        inverse: np.ndarray = np.identity(3, dtype=np.double)
+        if kwargs["invert_x"]:
+            inverse[0, 2] = -affine[0, 2]   # R1 += -(R3 * delta_x)
+            inverse[0] *= -1                # R1 *= -1
+        if kwargs["invert_y"]:
+            inverse[1, 2] = -affine[1, 2]   # R2 += -(R3 * delta_y)
+            inverse[1] *= -1                # R2 *= -1
+
+        self._inverse = inverse
+
+class Scaling(Affine):
+    def __init__(self):
+        super().__init__()
+
+        self._default |= {"scale_x": 1,
+                          "scale_y": 1}
+
+    def _preview_shape(self, height_0: int, width_0: int, channel: int=3, **kwargs) -> tuple[int, int, int]:
+        return (round(height_0 * kwargs["scale_y"]),
+                round(width_0 * kwargs["scale_x"]),
+                channel)
+
+    def _config(self, **kwargs) -> None:
+        ## Fetch Parameters
+        scale_x: float = kwargs["scale_x"]
+        scale_y: float = kwargs["scale_y"]
+        if abs(scale_x) < 1e-6:
+            raise ValueError(f"'scale_x' must not be 0")
+        if abs(scale_y) < 1e-6:
+            raise ValueError(f"'scale_y' must not be 0")
+
+
+        ## Building Affine Matrix
+        affine: np.ndarray = np.identity(3, dtype=np.double)
+        affine[0, 0] = scale_x
+        affine[1, 1] = scale_y
+
+        ## Find Inverse of Affine Matrix
+        inverse: np.ndarray = np.identity(3, dtype=np.double)
+        inverse[0, 0] = 1 / affine[0, 0]
+        inverse[1, 1] = 1 / affine[1, 1]
+
+        self._inverse = inverse
+
+
+class Shearing(Affine):
+    def __init__(self):
+        super().__init__()
+
+        self._default |= {"shear_x": 0,
+                          "shear_y": 0}
+
+    def _preview_shape(self, height_0: int, width_0: int, channel: int=3, **kwargs) -> tuple[int, int, int]:
+        shear_x: float = abs(kwargs["shear_x"])
+        shear_y: float = abs(kwargs["shear_y"])
+
+        width_1: int = width_0 + round(height_0 * shear_x)      # apply on x first
+        height_1: int = height_0 + round(width_1 * shear_y)     # apply on y later
+        return height_1, width_1, channel
+
+    def _config(self, **kwargs) -> None:
+        ## Fetching Parameters
+        shear_x: float = kwargs["shear_x"]
+        shear_y: float = kwargs["shear_y"]
+        h_0: int = kwargs["height"]
+        w_0: int = kwargs["width"]
+        h_1, w_1, _ = self._preview_shape(h_0, w_0, shear_x=shear_x, shear_y=shear_y)
+
+        ## Building Affine Matrix
+        affine_x: np.ndarray = np.identity(3, dtype=np.double)
+        affine_x[0, 1] = shear_x
+        if shear_x < 0:
+            affine_x[0, 2] = w_1 - w_0
+
+        affine_y: np.ndarray = np.identity(3, dtype=np.double)
+        affine_y[1, 0] = shear_y
+        if shear_y < 0:
+            affine_y[1, 2] = h_1 - h_0
+        #affine: np.ndarray = affine_y @ affine_x    # apply on x first
+
+        ## Find Inverse of Affine Matrix
+        inverse_x: np.ndarray = np.identity(3, dtype=np.double)
+        inverse_y: np.ndarray = np.identity(3, dtype=np.double)
+
+        inverse_x[0, 1] = -affine_x[0, 1]   # R1 += shear_x * R2
+        inverse_x[0, 2] = -affine_x[0, 2]   # R1 -= delta_x * R3
+        inverse_y[1, 0] = -affine_y[1, 0]   # R2 += shear_y * R1
+        inverse_y[1, 2] = -affine_y[1, 2]   # R2 -= delta_y * R3
+
+        self._inverse = inverse_x @ inverse_y   # apply on y first when reversed
+
+
+class Rotation(Affine):
+    def __init__(self):
+        super().__init__()
+
+        self._default |= {"degree": 0}
+
+    def _preview_shape(self, height_0: int, width_0: int, channel: int=3, **kwargs) -> tuple[int, int, int]:
+        degree: float = kwargs["degree"]
+        degree %= 180                           # rotating 180 degree reset the shape; also set degree to range [0, 180]
+        degree = min(degree, 180 - degree)      # rotating an angle required the same shape as rotating (180 - angle)
+
+        rad: float = radians(degree)
+        h_1: int = round(width_0 * sin(rad) + height_0 * cos(rad))
+        w_1: int = round(width_0 * cos(rad) + height_0 * sin(rad))
+        return h_1, w_1, channel
+
+    def _config(self, **kwargs) -> None:
+        ## Fetching Parameters
+        degree: float = kwargs["degree"]
+        degree = -degree    # invert y-axis to match image display convention
+        degree %= 360       # set to range [0, 360]
+        rad: float = radians(degree)
+
+        w_0: int = kwargs["width"]
+        h_0: int = kwargs["height"]
+
+        ## Building Affine Matrix
+        rotate: np.ndarray = np.array([[cos(rad), -sin(rad), 0],
+                                       [sin(rad), cos(rad), 0],
                                        [0, 0, 1]],
                                       dtype=np.double)
+        corner: np.ndarray = np.array([[0, 0, w_0-1, w_0-1],
+                                       [0, h_0-1, h_0-1, 0],
+                                       [1, 1, 1, 1]],
+                                      dtype=np.double)
+        corner = rotate @ corner
 
-        self._inverse = np.linalg.inv(affine)
+        shift: np.ndarray = np.array([[1, 0, -corner[0].min()],
+                                      [0, 1, -corner[1].min()],
+                                      [0, 0, 1]],
+                                     dtype=np.double)
 
+        # affine: np.ndarray = shift @ rotate   # apply rotation first
 
-if __name__ == "__main__":
-    image = Image.open("Munich.png").convert("RGB")
-    #image = Identity().apply(image)
+        ## Finding the Inverse of Affine Matrix
+        # the reverse operation of rotating rad is rotating (-rad)
+        rotate[0, 1] = -rotate[0, 1]
+        rotate[1, 0] = -rotate[1, 0]
 
-    t = Translation()
-    image = t.apply(image, background=(255, 255, 255))
+        shift[0, 2] = -shift[0, 2]
+        shift[1, 2] = -shift[1, 2]
 
-    image.save("altered.png")
-
-
+        self._inverse = rotate @ shift      # apply shifting first when reversed
