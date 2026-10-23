@@ -2,6 +2,7 @@ classDiagram
     class ImageEditor{
         +Image cur ~Readonly~
         -Image origin
+        -ndarray gray_arr
         -Dict~str, Transform~ tools
         +load(file_path: str) void
         +save(file_path: str) void
@@ -32,8 +33,63 @@ classDiagram
     note for Monochrome "kwargs: threshold: int, optional gray_arr: ndarray recommended"
 
 
+    class Affine{
+        <<Abstract>>
+        #Matrix~3x3, float~ inverse
+        #Dict~str, Any~ default
+        +apply(img: Image, **kwargs) Image
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+        #apply(arr: Tensor~HxWxC, int~, bg: ndarray, **kwargs) Tensor~HxWxC, int~
+        -bilinear_interpolation(src_arr: Tensor~HxWxC, int~, mapping: Matrix~3xn, float~, background: ndarray) Tensor~HxWxC, int~
+    }
+    note for Affine "config kwargs: height: int, width: int"
+
+    class Identity{
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+    }
+
+    class Translation{
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+    }
+    note for Translation "optional config kwargs: delta_x: int, delta_y: int"
+
+    class Reflection{
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+    }
+    note for Reflection "optional config kwargs: invert_x: bool, invert_y: bool"
+
+    class Scaling{
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+    }
+    note for Scaling "optional config kwargs: scale_x: float, scale_y: float"
+
+    class Shearing{
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+    }
+    note for Shearing "optional config kwargs: shear_x: float, shear_y: float"
+
+    class Rotation{
+        #preview_shape(h_0: int, w_0: int, **kwargs) tuple~3, int~
+        #config(**kwargs) void
+    }
+    note for Rotation "optional config kwargs: degree: float"
+
+
     ImageEditor ..> Transform: use
     GrayScale ..|> Transform
     Negative ..|> Transform
     Monochrome ..|> Transform
 
+    Affine ..|> Transform
+    Identity --|> Affine
+    Translation --|> Affine
+    Reflection --|> Affine
+    Scaling --|> Affine
+    Shearing --|> Affine
+    Rotation --|> Affine
