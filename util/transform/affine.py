@@ -1,4 +1,5 @@
 from abc import abstractmethod
+from typing import Any
 from .interface import Transform
 from PIL import Image
 import numpy as np
@@ -6,6 +7,7 @@ import numpy as np
 class Affine(Transform):
     def __init__(self):
         self._inverse: np.ndarray = np.identity(3, dtype=np.double)    # initialize as Identity Matrix
+        self._default: dict[str, Any] = {"background": (0, 0, 0)}
 
 
     @abstractmethod
@@ -19,14 +21,14 @@ class Affine(Transform):
     @staticmethod
     def _bilinear_interpolation(src_arr: np.ndarray,
                                 mapping: np.ndarray,
-                                background: tuple[int, int, int]) -> np.ndarray:
+                                background: np.ndarray) -> np.ndarray:
         """
         Getting the RGB values of a non-discrete point on an image using bilinear interpolation.
 
-        :param src_arr: an array containing the source image pixels' value
-        :param mapping: the point to match from the original
+        :param src_arr: a 3D tensor containing the source image pixels' value
+        :param mapping: a 2D matrix with each column being the coordinates of a point
         :param background: the color to fill when pixel can't map back to src_arr
-        :return the interpolated pixels; vectorized into image array
+        :return the interpolated pixels; a matrix with each row being a rgb value
         """
         def interpolate(a: np.ndarray,
                         b: np.ndarray,
@@ -64,10 +66,10 @@ class Affine(Transform):
         y_1 = y_1.clip(0, h - 1)
 
         ## Fetch 4 Adjacent Pixels
-        pixel_00: np.ndarray = src_arr[y_0, x_0]
-        pixel_01: np.ndarray = src_arr[y_1, x_0]
-        pixel_10: np.ndarray = src_arr[y_0, x_1]
-        pixel_11: np.ndarray = src_arr[y_1, x_1]
+        pixel_00: np.ndarray = src_arr[y_0, x_0].astype(np.int16)
+        pixel_01: np.ndarray = src_arr[y_1, x_0].astype(np.int16)
+        pixel_10: np.ndarray = src_arr[y_0, x_1].astype(np.int16)
+        pixel_11: np.ndarray = src_arr[y_1, x_1].astype(np.int16)
 
         ## Bilinear Interpolation
         top: np.ndarray = interpolate(pixel_00, pixel_10, alpha)
@@ -76,19 +78,16 @@ class Affine(Transform):
 
         ## Fill Background
         invalid = (mapping[0] < 0) | (mapping[0] > w) | (mapping[1] < 0) | (mapping[1] > h)
-        result = np.where(invalid[:, np.newaxis], np.array(background), result)
-
+        result = np.where(invalid[:, np.newaxis], background, result)
         return np.round(result).astype(np.uint8)
 
-    def _apply(self, arr: np.ndarray, **kwargs) -> np.ndarray[tuple[int, int, int], np.dtype[np.uint8]]:
-        default: dict[str, tuple[int, int, int]] = {"background": (0, 0, 0)}
-        kwargs = default | kwargs
-
+    def _apply(self, arr: np.ndarray,
+               bg: np.ndarray,
+               **kwargs) -> np.ndarray[tuple[int, int, int], np.dtype[np.uint8]]:
         h_0, w_0, c = arr.shape
         h_1, w_1, c = self._preview_shape(h_0, w_0, **kwargs)
 
-        kwargs |= {"height": h_0, "width": w_0}
-        self._config(**kwargs)
+        self._config(height=h_0, width=w_0, **kwargs)
 
         ## Map destination pixels to point of original image
         inverse: np.ndarray = self._inverse
@@ -97,13 +96,17 @@ class Affine(Transform):
         mapping = inverse @ mapping
 
         ## Construct Final Image
-        flat: np.ndarray = self._bilinear_interpolation(arr, mapping, kwargs["background"])
+        flat: np.ndarray = self._bilinear_interpolation(arr, mapping, bg)
         result: np.ndarray = flat.reshape(h_1, w_1, c)
         return result
 
     def apply(self, img: Image.Image, **kwargs) -> Image.Image:
+        kwargs = self._default | kwargs
+
+        background: tuple[int, int, int] = kwargs.pop("background")
+
         arr: np.ndarray = np.array(img)
-        result = self._apply(arr, **kwargs)
+        result = self._apply(arr, np.array(background, dtype=np.uint8), **kwargs)
         return Image.fromarray(result)
 
 
