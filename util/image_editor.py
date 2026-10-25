@@ -1,6 +1,7 @@
 from PIL import Image
 from util.transform.interface import Transform
 from util.transform.color import GrayScale, Monochrome, Negative
+from util.transform.affine import Translation, Reflection, Scaling, Shearing, Rotation
 import numpy as np
 
 
@@ -10,7 +11,13 @@ class ImageEditor:
         self.__origin: Image.Image
         self.__tools: dict[str, type[Transform]] = {"gray": GrayScale,
                                                     "mono": Monochrome,
-                                                    "negative": Negative}
+                                                    "negative": Negative,
+                                                    "shift": Translation,
+                                                    "reflect": Reflection,
+                                                    "scale": Scaling,
+                                                    "shear": Shearing,
+                                                    "rotate": Rotation
+                                                    }
         self.__gray_arr: np.ndarray
 
         self.load(file_path)
