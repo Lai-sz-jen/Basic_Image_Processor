@@ -1,4 +1,4 @@
-from tkinter import N, S, E, W, NSEW, HORIZONTAL
+from tkinter import N, S, E, W, NSEW, HORIZONTAL, IntVar
 from tkinter import ttk
 from .gui_element.menu import Menu
 from .gui_element.histogram import Histogram
@@ -15,6 +15,8 @@ class MonochromeGUI(ttk.Frame):
         self.__apply: Callable = apply
         self.__restore: Callable = restore
 
+        self.__threshold: IntVar = IntVar(value=128)
+
         ## Styling
         style = ttk.Style()
         style.configure("testing.TFrame", background="lightgray")
@@ -29,13 +31,13 @@ class MonochromeGUI(ttk.Frame):
         self.slider = ttk.Scale(self,
                                 from_=0,
                                 to=255,
-                                value=128,
+                                variable=self.__threshold,
                                 command=self.point_to,
                                 orient=HORIZONTAL)
 
         self.slider.grid(column=0, row=2, sticky=(E, W))
 
-        self.threshold_label = ttk.Label(self, text="128", anchor=E, width=3)
+        self.threshold_label = ttk.Label(self, textvariable=self.__threshold, anchor=E, width=3)
         self.threshold_label.grid(column=0, row=3, sticky=N)
 
         self.apply_menu = Menu(self, [("Apply", self.apply_mono), ("Cancel", self.abandon)], style="testing.TFrame")
@@ -46,13 +48,16 @@ class MonochromeGUI(ttk.Frame):
 
     def point_to(self, threshold: str) -> None:
         t: int = int(threshold.split('.')[0])
+        self.__threshold.set(value=t)
 
         self.hist.point_to(t)
         self.threshold_label.config(text=str(t))
         self.__preview(t)
 
     def apply_mono(self):
-        self.__apply()
+        t: int = self.__threshold.get()
+
+        self.__apply(threshold=t)
         self.grid_remove()
 
     def abandon(self):

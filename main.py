@@ -190,11 +190,11 @@ class ImageEditorGUI(ttk.Frame):
 
         self._update_image_display(self.editor.preview("mono", threshold=threshold))
 
-    def to_mono(self):
+    def to_mono(self, **kwargs):
         if not self.editor:
             return
 
-        self.editor.apply("mono")
+        self.editor.apply("mono", **kwargs)
         self._update_image_display(self.editor.cur)
 
     def to_negative(self):
