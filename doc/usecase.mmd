@@ -1,17 +1,40 @@
 usecase-beta
     actor User
     
-    systemBoundary Editor["Basic Image Editor"] 
-        load["Load Image"]
-        grayscale["Transform to\n GrayScale"]
-        monochrome["Transform to\n Monochrome"]
-        negative["Transform to\n Negative Image"]
-        save ["Save as File"]
+    systemBoundary Editor["Image Wizard"]
+        %% File Operation (Blue)
+        load("Load Image"):::fileOps
+        save("Save Image"):::fileOps
+        restore("Restore Image"):::fileOps
+
+        %% Color Operation (Purple)
+        grayscale("Convert to\nGrayScale"):::colorOps
+        monochrome("Convert to\nMonochrome"):::colorOps
+        negative("Convert to\nNegative Image"):::colorOps
+
+        %% Geometric Operation (Green)
+        reflect("Reflect Image"):::geoOps
+        shift("Shift Image"):::geoOps
+        scale("Scale Image"):::geoOps
+        shear("Shear Image"):::geoOps
+        rotate("Rotate Image"):::geoOps
     end
 
     User --> load
-    User --> grayscale
-    User --> monochrome
-    User --> negative
     User --> save
-    
+    User --> restore
+
+    User --> grayscale
+    User --> negative
+    User --> monochrome
+
+    User --> reflect
+    User --> shift
+    User --> scale
+    User --> shear
+    User --> rotate
+
+    %% Theme / Color Palette Definitions
+    classDef fileOps fill:#e0f2fe,stroke:#0284c7,stroke-width:1.5px,color:#0369a1;
+    classDef colorOps fill:#f3e8ff,stroke:#9333ea,stroke-width:1.5px,color:#6b21a8;
+    classDef geoOps fill:#dcfce7,stroke:#16a34a,stroke-width:1.5px,color:#15803d;
